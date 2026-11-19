@@ -4,7 +4,7 @@ Page: `qa-alertbus-processing.aws.buspatrol.com/process/<eventId>` (Event Proces
 Header row: Date & Time | Vehicle | Partner | Location | Violations | Reviewer. Wizard tabs: **Choose Images → Choose Videos → Citation Details → Finish Processing**.
 
 Viewing a frame = `browser_take_screenshot` WITHOUT `filename` (the image is shown to you). Save evidence only WITH `filename`.
-Budget: at most 25 viewing screenshots per event. Never write a full plate, owner name or address into notes, defects or the model.
+Budget: at most 35 viewing screenshots per event. Never write a full plate, owner name or address into notes, defects or the model.
 Only process events you claimed yourself from **Q.A. Processable Events** in this run (record them as OWNED). Never grab, submit or finish an event from the regular Processable Events queue or one assigned to someone else.
 
 ## Browser snippets (pass to `browser_evaluate` as `function`; replace I and T)
@@ -25,16 +25,24 @@ RESTORE - put videos back (ALWAYS before clicking any app button; the video stay
 1. Go to **Q.A. Processable Events** and claim/open one event (at most `self_created_data.max_per_run` per run).
 2. Confirm the banner says you are assigned to process it, then `python3 qa/ledger.py note obs "OWNED event <eventId>"`.
 
-## Step 1 - Choose Images (find the violation and grab 3 images)
-1. The left grid shows camera tiles (e.g. overview, overview, windshield, inner lane, outer lane). Tiles showing "Failed to load video" or labelled "missing" can't be used; note them once with `note obs`. A tile marked "Selected" is the one loaded in the main player.
-2. Click a usable **overview** tile so it plays in the main player. Run LIST and pick the MAIN player (largest w×h).
-3. Coarse scan: FOCUS the main player at 6 evenly spaced times across its duration and view each frame. Look for the bus's **red STOP sign / stop arm extended** (red sign at the frame's left edge) and a **vehicle passing the bus** while it's out. Use the burned-in overlay (channel, date/time, GPS) to keep track.
-4. Refine around that moment in 0.5 s, then 0.2 s steps:
-   - **Overview frame**: the stop arm is clearly extended AND the vehicle is beside or passing the bus (proves the violation).
-   - **License-plate frame**: the vehicle's plate is largest and sharpest (often a second or two later, or on another camera such as windshield/rear).
-   - **Rearview frame**: the vehicle seen from behind after passing (rear plate / rear camera if available).
-5. For each: FOCUS to that time → view it → RESTORE → click the right-side button **Grab Overview**, **Grab License Plate** or **Grab Rearview**. Switch camera tiles as needed (the grab uses the video currently in the main player).
-6. Read the plate characters and state. Accept only if every character is clearly legible in at least two frames; otherwise don't guess: `note ambiguity "plate not legible, event <id>"` and use the disapproval path if the app offers one.
+## Step 1 - Choose Images (find the VIOLATING vehicle, not just any vehicle)
+A violation = a vehicle that MOVES past the stopped bus WHILE its red lights / stop arm are active. Parked cars and cars that
+passed before the red lights came on are NOT violators, even if their plate is the clearest one on screen.
+
+1. Tiles: the left grid shows camera tiles (overview, windshield, inner lane, outer lane, ...). Skip "Failed to load video" / "missing" tiles (note once with `note obs`). The tile marked "Selected" plays in the main player.
+2. Load a usable **overview** tile into the main player. Run LIST and pick the MAIN player (largest w×h).
+3. Find the red window: the overlay has a coloured light indicator next to the channel (top-left dot: yellow/amber = warning lights, RED = red lights / stop arm out); the bus's red STOP sign also shows at the frame edge. Coarse-scan 6 frames, then narrow down (halve the interval) to the FIRST frame where the indicator is red = T_red, and the frame where it goes off = T_off (or the end of the video).
+4. List the parked/static vehicles: view a frame ~2 s BEFORE T_red and the frame at T_red. Every vehicle that is at the same place (same spot relative to houses, trees, kerb) in both is parked/static: note them (e.g. "white sedan at kerb right, silver hatchback behind it") and EXCLUDE them for the rest of the event.
+5. Find the mover: view frames every 0.5 s from T_red to T_off. The violator is a vehicle whose position changes from frame to frame (gets closer/farther, crosses the frame, passes the bus/stop arm) during the red window. If several move, pick the one that passes the bus; if none moves, there is no violation on this camera: check the next camera at the same overlay time, and if still none, do NOT grab: `note ambiguity "no moving vehicle during red window, event <id>"` and use the disapproval path.
+6. Track the same vehicle on other cameras by matching the OVERLAY date/time (not the video offset) and its colour/type, e.g. windshield or inner lane for the plate and rear.
+7. Choose the three frames, all showing THE violator:
+   - **Overview**: violator beside/passing the bus WITH the red indicator / stop arm visible in the same frame.
+   - **License Plate**: the violator's plate largest and sharpest (any camera, during or just after the red window).
+   - **Rearview**: the violator from behind after passing.
+8. Before each grab write one line: `python3 qa/ledger.py note obs "VIOLATOR <colour/type>, moving <direction> at overlay <time>, red indicator <on/off>; excluded parked: <list>"`. If you can't fill it in honestly, don't grab.
+9. FOCUS to the chosen time → view → RESTORE → click **Grab Overview / Grab License Plate / Grab Rearview**. A grab already made on the wrong vehicle must be redone (grab again on the right frame; check the tile badge moves).
+10. **Crop License Plate** dialog (after Grab License Plate): shrink the crop box tightly around the violator's plate (drag the box handles with `browser_drag`, or the mouse tools if available), check "New Image Preview" shows the plate filling most of the image and belonging to the violator, then **Save**. If the crop can't be adjusted, `note obs` and Save the default.
+11. Read the plate characters and state from the violator only. Accept only if every character is clearly legible in at least two frames; otherwise don't guess: `note ambiguity "plate not legible, event <id>"` and use the disapproval path.
 
 ## Step 2 - Choose Videos (attach the evidence clips)
 1. The top shows 3 video slots (the red-bordered one is the active/required slot); the bottom strip lists the camera videos.
