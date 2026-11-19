@@ -142,14 +142,25 @@ def main() -> None:
     fw = a.path
     if not fw:
         try:
+            env_path = ROOT / ".env.qa"
+            env_values = {}
+            if env_path.exists():
+                for line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                    match = re.match(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$', line)
+                    if match:
+                        value = match.group(2).strip().strip("'\"")
+                        env_values[match.group(1)] = value
+            if env_values.get("QA_AUTOMATION_PATH"):
+                fw = env_values["QA_AUTOMATION_PATH"]
             m = re.search(r'^framework_path\s*:\s*["\']?([^"\'#\n]+?)["\']?\s*(?:#.*)?$',
                           (ROOT / "qa.config.yaml").read_text(encoding="utf-8"), re.M)
-            fw = m.group(1).strip() if m else None
+            if not fw:
+                fw = m.group(1).strip() if m else None
         except OSError:
             fw = None
     if not fw or fw.startswith("/path/to"):
         sys.exit("Give the framework path: python3 qa/scan_framework.py /path/to/framework "
-                 "(or set framework_path in qa/qa.config.yaml; relative paths are from the project root)")
+                 "(or set QA_AUTOMATION_PATH in qa/.env.qa / framework_path in qa/qa.config.yaml)")
     p = Path(os.path.expanduser(fw))
     base = (p if p.is_absolute() else ROOT.parent / p).resolve()
     if not base.is_dir():

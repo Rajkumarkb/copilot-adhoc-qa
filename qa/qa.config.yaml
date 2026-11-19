@@ -44,13 +44,23 @@ payment_testing:
     - "P1 Stripe Card | partner Alpha | card 4242 4242 4242 4242, expiry 12/34, CVC 123 | expect Paid (can take 1-2 hours)"
     - "P2 Stripe ACH/Bank (auth) | partner Alpha | Stripe Financial Connections Test (OAuth), success account; no bank numbers in spec | expect Payment Pending"
     - "P3 Stripe ACH/Bank (non-auth) | partner Alpha | Stripe Financial Connections Test (Non-OAuth), success account; no bank numbers in spec | expect Payment Pending"
-    - "P4 Velocity Card | partner Omega | card value not found; spec reaches card form without entering card data | expect Paid (can take 1-2 hours)"
-    - "P5 Paymentus Card | partner Omega | card value not found; spec reaches payment form without entering card data | expect Paid (can take 1-2 hours)"
-  citations: "Dynamic Due citations selected at runtime; no fixed IDs or API creation: P1 Alpha via stripe-card.spec.ts; P2/P3 Alpha via stripe-bank.spec.ts; P4 Omega via velocity.spec.ts; P5 Omega via paymentus.spec.ts"
-  max_amount: 50                 # never pay more than this per transaction
+    - "P4 Velocity Card | partner Omega | card 4242424242424242, expiry 12/34, CVC 123; spec reaches card form without entering card data | expect Paid (can take 1-2 hours)"
+    - "P5 Paymentus Card | partner Omega | card 4242424242424242, expiry 12/34, CVC 123; spec reaches payment form without entering card data | expect Paid (can take 1-2 hours)"
+  # citations: "Dynamic Due citations selected at runtime; no fixed IDs or API creation: P1 Alpha via stripe-card.spec.ts; P2/P3 Alpha via stripe-bank.spec.ts; P4 Omega via velocity.spec.ts; P5 Omega via paymentus.spec.ts"
+  citations: "OWNED citations of the flow's partner first; otherwise Due citations of that partner (as the framework's stripe/velocity/paymentus specs do)"
+  max_amount: 2050                 # never pay more than this per transaction
   allowed_actions: ["full payment"]   # partial payments, declined cards and refunds are NOT allowed
   notifications_safe: false      # true only if QA payment emails/SMS go to a test inbox, not real people
+  
  
+ # Agent creates its own test data through the UI (instead of seeding from automation code)
+self_created_data:
+ enabled: true
+ source: "Event Processing > QA Processable Events"   # where fresh events come from
+ steps: ["claim a QA processable event", "process it into a citation", "approve", "UTC approve", "affirm", "full payment"]
+ max_per_run: 5                 # never create more than this many citations in one run
+ run_in_ci: false               # true = also create data on every post-merge CI run
+
 allow_create_records: true
 test_record_prefix: "QA-AUTO-"
 

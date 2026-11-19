@@ -102,8 +102,20 @@ def check_python() -> None:
             + (f" (error: {err.decode(errors='ignore').strip().splitlines()[-1][:160]})" if err else ""))
 
 
+def env_value(path: Path, key: str) -> str | None:
+    if not path.exists():
+        return None
+    for env_key, line, kind in parse_env(path.read_text(encoding="utf-8", errors="ignore")):
+        if kind == "kv" and env_key == key:
+            value = line.partition("=")[2].strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            return os.path.expanduser(value) or None
+    return None
+
+
 def framework_dir() -> Path | None:
-    fw = cfg_value("framework_path")
+    fw = env_value(ENV_QA, "QA_AUTOMATION_PATH") or cfg_value("framework_path")
     if not fw or fw.startswith("/path/to"):
         return None
     p = Path(os.path.expanduser(fw))
@@ -112,6 +124,9 @@ def framework_dir() -> Path | None:
 
 def check_env_qa() -> None:
     global restart
+    framework = env_value(ENV_QA, "QA_AUTOMATION_PATH")
+    if framework:
+        ok(f"automation framework path: {framework}")
     need = needed_secret_names()
     if not need:
         fix("no roles with username_secret/password_secret in qa/qa.config.yaml")
@@ -148,7 +163,7 @@ def check_env_qa() -> None:
 
     entries = parse_env(ENV_QA.read_text(encoding="utf-8", errors="ignore"))
     keys = [k for k, _, kind in entries if kind == "kv"]
-    extra = [k for k in keys if k not in need]
+    extra = [k for k in keys if k not in need and k != "QA_AUTOMATION_PATH"]
     if extra:
         kept = [line for k, line, kind in entries if kind == "other" or k in need]
         ENV_QA.write_text("\n".join(kept) + "\n", encoding="utf-8")
