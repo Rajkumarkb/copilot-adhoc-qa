@@ -63,8 +63,15 @@ self_created_data:
  steps: ["claim a QA processable event", "grab images", "choose videos", "citation details", "finish processing", "approve", "UTC approve", "affirm", "full payment"]
  max_per_run: 5                 # never process more than this many events in one run
  run_in_ci: false               # true = also process events on every post-merge CI run
- owner_info_mode: "stop"        # stop | lookup | test_owner  (see section 7)
- test_owner: "QA-AUTO Test Owner, 1 Test St, Tallahassee, FL, 32303"   # used only when owner_info_mode is test_owner
+ owner_info_mode: "test_owner"   # stop | lookup | test_owner
+ test_owner:
+   name: "QA-AUTO Test Owner"
+   street: "1 Test St"
+   city: "Tallahassee"
+   state: "FL"
+   zip: "32303"
+   vin: "<17-char QA test VIN from your team>"
+   registration_expiry: "one year from today"
 
 allow_create_records: true
 test_record_prefix: "QA-AUTO-"
