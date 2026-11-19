@@ -59,10 +59,12 @@ payment_testing:
  # Agent creates its own test data through the UI (instead of seeding from automation code)
 self_created_data:
  enabled: true
- source: "Event Processing > QA Processable Events"   # where fresh events come from
- steps: ["claim a QA processable event", "process it into a citation", "approve", "UTC approve", "affirm", "full payment"]
- max_per_run: 5                 # never create more than this many citations in one run
- run_in_ci: false               # true = also create data on every post-merge CI run
+ source: "Event Processing > Q.A. Processable Events"   # where fresh events come from
+ steps: ["claim a QA processable event", "grab images", "choose videos", "citation details", "finish processing", "approve", "UTC approve", "affirm", "full payment"]
+ max_per_run: 5                 # never process more than this many events in one run
+ run_in_ci: false               # true = also process events on every post-merge CI run
+ owner_info_mode: "stop"        # stop | lookup | test_owner  (see section 7)
+ test_owner: "QA-AUTO Test Owner, 1 Test St, Tallahassee, FL, 32303"   # used only when owner_info_mode is test_owner
 
 allow_create_records: true
 test_record_prefix: "QA-AUTO-"
@@ -95,6 +97,7 @@ approval_required_keywords:
   - submit
   - export
   - upload
+  - finish
 
 off_limits:                             # free text rules, e.g. modules or records not to touch
   - "Do not change settings of shared/global configuration pages."

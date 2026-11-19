@@ -55,6 +55,7 @@
   - A simulated submission network failure displays `Failed to create citation`; the spec then retries after restoring connectivity. [asserted: `tests/ui/applications/qa/event-processing/edge-case/processable-events.spec.ts`]
 - Automated coverage: Landing pages, event processing, citation creation, registration lookup, comments, and submission failure.
 - Adhoc gaps: Duplicate retry behavior and event/citation/report consistency.
+- Processing procedure (videos, grabs, clips, citation form): see qa/knowledge/video-review.md
 
 ## Module: Reports
 - Routes/controls: Reports navigation; Event Rejections, Citations, Payments, Approvals, Hearings, Pending Hearings.

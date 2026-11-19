@@ -11,7 +11,7 @@
     "blockedOrigins": ["https://app.example.com"]
   },
   "snapshot": { "mode": "none" },
-  "imageResponses": "omit",
+  "imageResponses": "allow",
   "console": { "level": "error" },
   "timeouts": { "action": 8000, "navigation": 45000 },
   "outputDir": "qa/runs/_mcp-output",
