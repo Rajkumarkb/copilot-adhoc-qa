@@ -1,0 +1,8 @@
+qa/.env.qa
+qa/runs/
+node_modules/
+.venv/
+qa/.browser-profile/
+qa/knowledge/changes.md
+qa/knowledge/model-base.next
+__pycache__/

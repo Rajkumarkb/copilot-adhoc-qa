@@ -1,0 +1,92 @@
+# Adhoc QA run configuration. Edit before running /qa-start.
+app_name: "AlertBus"
+environment: "QA"                       # must NOT be production
+base_url: "https://qa-alertbus-dashboard.aws.buspatrol.com" # AlertBus QA UI
+authorized_hosts:
+  - "qa-alertbus-dashboard.aws.buspatrol.com"
+  - "qa-alertbus-processing.aws.buspatrol.com"
+  - "qa-fae.aws.buspatrol.com"
+production_hosts:                       # hosts the agent must never touch
+  - "dashboard.alertbus.com"
+  - "alertbus-dashboard.aws.buspatrol.com"
+
+purpose: "AlertBus Dashboard: internal tool for reviewing school-bus stop-arm violation events and evidence, approving/affirming citations, running reports and admin jobs."
+primary_journey: "log in -> Event Management -> open an event -> view its evidence -> Reports -> run a report and check the numbers match"
+framework_path: "/Users/rajkumarkb/Documents/qa-automation"
+
+# Single sign-on pages the agent MAY visit, only to log in (Microsoft Entra / Azure AD shown).
+auth_hosts:
+ - "login.microsoftonline.com"
+ - "login.live.com"
+ - "aadcdn.msftauth.net"
+ - "aadcdn.msauth.net"
+ - "logincdn.msftauth.net"
+login_mode: "auto"
+
+roles:                                  # values are secret NAMES from qa/.env.qa, never real passwords
+  - name: "Admin"
+    login_path: "/login"
+    username_secret: "QA_USER_EMAIL"
+    password_secret: "QA_USER_PASS"
+  # - name: "admin"
+  #   login_path: "/login"
+  #   username_secret: "QA_ADMIN_EMAIL"
+  #   password_secret: "QA_ADMIN_PASS"
+
+# Citation payment flow. Off unless you authorize it for the QA environment.
+payment_testing:
+  enabled: true                 # true = agent may make FULL payments WITHOUT asking, within the limits below
+  run_in_ci: true               # true = agent may run payment tests in CI environment
+  gateway_mode: "sandbox"        # must be the payment provider's test/sandbox mode in QA
+  entry: "https://qa-alertbus-dashboard.aws.buspatrol.com/citations -> filter partner and Due status -> open citation -> Violator View -> Open in New Tab -> Pay by Card or Bank; Omega flows first set the payment portal in Partner Settings"
+  hosts: ["stripe.com", "velocitypayment.com", "paymentus.com"]
+  flows:                         # FULL payment only. Cards = each provider's published SANDBOX test card, never real cards
+    - "P1 Stripe Card | partner Alpha | card 4242 4242 4242 4242, expiry 12/34, CVC 123 | expect Paid (can take 1-2 hours)"
+    - "P2 Stripe ACH/Bank (auth) | partner Alpha | Stripe Financial Connections Test (OAuth), success account; no bank numbers in spec | expect Payment Pending"
+    - "P3 Stripe ACH/Bank (non-auth) | partner Alpha | Stripe Financial Connections Test (Non-OAuth), success account; no bank numbers in spec | expect Payment Pending"
+    - "P4 Velocity Card | partner Omega | card value not found; spec reaches card form without entering card data | expect Paid (can take 1-2 hours)"
+    - "P5 Paymentus Card | partner Omega | card value not found; spec reaches payment form without entering card data | expect Paid (can take 1-2 hours)"
+  citations: "Dynamic Due citations selected at runtime; no fixed IDs or API creation: P1 Alpha via stripe-card.spec.ts; P2/P3 Alpha via stripe-bank.spec.ts; P4 Omega via velocity.spec.ts; P5 Omega via paymentus.spec.ts"
+  max_amount: 50                 # never pay more than this per transaction
+  allowed_actions: ["full payment"]   # partial payments, declined cards and refunds are NOT allowed
+  notifications_safe: false      # true only if QA payment emails/SMS go to a test inbox, not real people
+ 
+allow_create_records: true
+test_record_prefix: "QA-AUTO-"
+
+# The agent stops and asks before clicking a control whose label contains any of these.
+approval_required_keywords:
+  - delete
+  - remove
+  - archive
+  - deactivate
+  - cancel subscription
+  - pay
+  - purchase
+  - checkout
+  - refund
+  - transfer
+  - send
+  - invite
+  - notify
+  - publish
+  - approve
+  - reset all
+  - bulk
+  - approv
+  - affirm
+  - reject
+  - void
+  - dismiss
+  - issue
+  - submit
+  - export
+  - upload
+
+off_limits:                             # free text rules, e.g. modules or records not to touch
+  - "Do not change settings of shared/global configuration pages."
+  - "Do not edit records not created by this run."
+
+timebox_minutes: 480
+depth: "broad"                          # quick (risk-focused) | broad (every module)
+checkpoint_every_actions: 40            # start a fresh chat after this many browser actions

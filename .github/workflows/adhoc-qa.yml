@@ -1,0 +1,136 @@
+name: Adhoc QA agent (post-merge)
+
+# Full-application adhoc QA run by the GitHub Copilot CLI after every merge to main.
+# Phase 1: triggered by this (qa-automation) repo. Phase 2: the AlertBus app repo can trigger it
+# with a repository_dispatch event "alertbus-app-merged" (see qa/ci/README-ci.md).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "qa/knowledge/**"     # committing a refreshed app model must not start a 5-hour run
+      - "qa/runs/**"
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: "Compare against this commit (default: commit the app model was built from)"
+        required: false
+  repository_dispatch:
+    types: [alertbus-app-merged]
+
+concurrency:
+  group: adhoc-qa-agent
+  cancel-in-progress: false     # one run at a time; newer merges queue (only the latest waits)
+
+permissions:
+  contents: read
+
+jobs:
+  adhoc-qa:
+    runs-on: ${{ vars.QA_RUNNER || 'ubuntu-latest' }}   # use the same runner as your existing UI tests if QA is not public
+    timeout-minutes: 350
+    env:
+      COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}   # fine-grained PAT with "Copilot Requests"
+      COPILOT_MODEL: ${{ vars.COPILOT_MODEL }}                    # optional, e.g. a cheaper model for long runs
+      QA_TIMEBOX: ${{ vars.QA_CI_TIMEBOX || '300' }}              # active testing minutes per run
+      QA_MAX_SESSIONS: ${{ vars.QA_MAX_SESSIONS || '20' }}
+      # Login secrets: the NAMES on the left must match username_secret/password_secret in qa/qa.config.yaml.
+      # Point the right side at the SAME repository secrets your existing UI test workflow uses.
+      QA_USER_EMAIL: ${{ secrets.QA_USER_EMAIL }}
+      QA_USER_PASS: ${{ secrets.QA_USER_PASS }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: |
+          pip install -r qa/requirements.txt
+          npm install -g @github/copilot@${{ vars.COPILOT_CLI_VERSION || 'latest' }}
+          copilot --version
+          google-chrome --version || echo "::warning::Google Chrome not found on this runner"
+
+      - name: Check Copilot token
+        run: |
+          if [ -z "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "::error::Add repository secret COPILOT_GITHUB_TOKEN (fine-grained PAT with the Copilot Requests permission)."
+            exit 1
+          fi
+
+      - name: Prepare CI config and login secrets
+        run: python3 qa/ci/ci_state.py prepare
+
+      - name: Detect framework / app changes
+        env:
+          APP_FILES: ${{ toJSON(github.event.client_payload.changed_files) }}
+        run: |
+          base="${{ github.event.inputs.base_sha || github.event.before }}"
+          extra=()
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            python3 -c "import json,os;v=json.loads(os.environ.get('APP_FILES') or 'null') or [];print('\n'.join(v if isinstance(v,list) else str(v).split()))" > "$RUNNER_TEMP/app-files.txt"
+            extra=(--app-changes "$RUNNER_TEMP/app-files.txt")
+          fi
+          python3 qa/ci/diff_inventory.py --base "$base" "${extra[@]}"
+          echo "### Changes since the app model was built" >> "$GITHUB_STEP_SUMMARY"
+          head -c 60000 qa/knowledge/changes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Agent - refresh app model (flow logic)
+        run: bash qa/ci/run_agent.sh learn 40m
+
+      - name: Start run
+        run: python3 qa/ledger.py init
+
+      - name: Agent - plan, log in, test new/changed fields first
+        run: bash qa/ci/run_agent.sh start 45m
+
+      - name: Agent - continue until plan covered or timebox used
+        run: |
+          for i in $(seq 1 "$QA_MAX_SESSIONS"); do
+            s="$(python3 qa/ci/ci_state.py state)"
+            echo "state after session $i: $s"
+            case "$s" in
+              CONTINUE*) bash qa/ci/run_agent.sh continue 45m ;;
+              *) break ;;
+            esac
+          done
+          echo "Final state: $(python3 qa/ci/ci_state.py state)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Agent - final report
+        if: always()
+        run: |
+          if [ -f qa/runs/CURRENT ]; then
+            bash qa/ci/run_agent.sh report 25m
+            python3 qa/ledger.py report || true
+            run="qa/runs/$(cat qa/runs/CURRENT)"
+            cp qa/knowledge/app-model.md qa/knowledge/changes.md qa/knowledge/model-base.next "$run/" 2>/dev/null || true
+            python3 qa/ledger.py status >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+
+      - name: Upload report and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adhoc-qa-${{ github.run_number }}
+          path: |
+            qa/runs/
+            !qa/runs/_mcp-output/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Slack summary
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then echo "No SLACK_WEBHOOK_URL secret; skipping Slack."; exit 0; fi
+          python3 qa/ci/ci_state.py summary > "$RUNNER_TEMP/slack.json"
+          curl -sS -X POST -H 'Content-type: application/json' --data @"$RUNNER_TEMP/slack.json" "$SLACK_WEBHOOK_URL"

@@ -1,0 +1,19 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": false,
+    "userDataDir": "qa/.browser-profile",
+    "launchOptions": { "channel": "chrome", "headless": false },
+    "contextOptions": { "viewport": { "width": 1366, "height": 768 } }
+  },
+  "network": {
+    "allowedOrigins": [],
+    "blockedOrigins": ["https://app.example.com"]
+  },
+  "snapshot": { "mode": "none" },
+  "imageResponses": "omit",
+  "console": { "level": "error" },
+  "timeouts": { "action": 8000, "navigation": 45000 },
+  "outputDir": "qa/runs/_mcp-output",
+  "codegen": "none"
+}

@@ -1,0 +1,7 @@
+## CI mode (GitHub Actions — nobody is watching; these rules override anything above that says "ask me", "wait" or "/qa-...")
+- You run unattended in a fresh session. Never ask questions and never wait for a reply: decide, log what you decided with `python3 qa/ledger.py note activity "..."`, and continue.
+- Anything that needs approval (irreversible/external/bulk actions, payments while `payment_testing.enabled: false`, or records not created by this run): do NOT click it. Verify the surrounding screen read-only, test safe QA-owned alternatives, then log `SKIPPED-APPROVAL: <what>` and move on. One unsafe control does not block the entire page or workflow.
+- Login: use the Login steps with the secret NAMES from the brief. If sign-in fails, or MFA / a code / CAPTCHA / "approve sign-in" appears, run `python3 qa/ledger.py note blocker "LOGIN-FAILED: <short reason>"` and END the session immediately.
+- Session length: after about 40 browser actions, run `python3 qa/ledger.py status` and END your turn with one line. If the current item is at a productive final step and is safe, finish and verify it before ending. Never end merely after opening pages or mapping forms when a safe action remains.
+- Never run `git`, `npm`, `npx`, `curl`, `gh` or the automation framework. Never open `.env*` files or anything outside this repository. Never edit files outside `qa/runs/` and `qa/knowledge/`.
+- Keep chat output minimal: the ledger, defect files and evidence are the record.

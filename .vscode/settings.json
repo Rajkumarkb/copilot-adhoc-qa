@@ -1,0 +1,13 @@
+{
+ // Let the QA agent run its own helper scripts without asking every time.
+ "chat.tools.terminal.autoApprove": {
+   "/^(\\./\\.venv/bin/)?python3? qa/(ledger|setup|scan_framework|coverage)\\.py\\b/": true
+ },
+ // The QA site: no "Fetches data from..." / "Approve Tool Result" cards.
+ "chat.tools.urls.autoApprove": {
+   "https://qa-alertbus-dashboard.aws.buspatrol.com": { "approveRequest": true, "approveResponse": true },
+   "https://qa-alertbus-dashboard.aws.buspatrol.com/*": { "approveRequest": true, "approveResponse": true }
+ },
+ // Let the agent work longer before asking "Continue?" (ignored by VS Code versions that lack it).
+ "chat.agent.maxRequests": 200
+}
