@@ -699,6 +699,12 @@ def cmd_report(_a) -> None:
     (d / "report.md").write_text(md_text, encoding="utf-8")
     cfg = load_ledger(d)["config"]
     (d / "report.html").write_text(md_to_html(md_text, f"QA Report {cfg.get('app_name','')}"), encoding="utf-8")
+    try:
+        sys.path.insert(0, str(ROOT))
+        import report_html
+        report_html.build(d)
+    except Exception as ex:
+        print(f"WARN rich HTML report failed ({ex}); plain report.html kept")
     rel = d.relative_to(ROOT.parent).as_posix()
     print(f"ok report -> {rel}/report.md and report.html")
     for x in warnings:

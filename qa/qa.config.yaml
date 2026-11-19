@@ -6,6 +6,9 @@ authorized_hosts:
   - "qa-alertbus-dashboard.aws.buspatrol.com"
   - "qa-alertbus-processing.aws.buspatrol.com"
   - "qa-fae.aws.buspatrol.com"
+  - "qa-citations.aws.buspatrol.com/"
+  - "qa-payments.aws.buspatrol.com"
+  - "qa-alertbus.aws.buspatrol.com"
 production_hosts:                       # hosts the agent must never touch
   - "dashboard.alertbus.com"
   - "alertbus-dashboard.aws.buspatrol.com"
